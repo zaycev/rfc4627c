@@ -1,0 +1,36 @@
+ng
+.eunit
+deps
+priv
+*.o
+*.beam
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+#Mac
+.DS_Store
+Icon?
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+.Spotlight-V100
+.Trashes
+
+# TextMate
+*.tmproj
+*.tmproject
+tmtags
+
