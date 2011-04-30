@@ -4,7 +4,7 @@ deps
 priv
 *.o
 *.beam
-
+*.dump
 # Compiled Object files
 *.slo
 *.lo

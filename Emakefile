@@ -1,7 +1,8 @@
 % -*- mode: erlang -*-
 { 
   [	
-    "./src/*"
+    "./src/*",
+    "./test/*"
   ], 
   [
     { i, "./include" },
