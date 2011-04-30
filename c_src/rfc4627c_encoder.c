@@ -67,26 +67,37 @@ encode_term(ErlNifEnv* env, ERL_NIF_TERM term, JsonEncoder* enc) {
 void
 encode_list(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc) {
 	ERL_NIF_TERM head, tail;
-	enc_write_ch(enc, '[');	
+	size_t terms_counter = 0;
+	enc_write_ch(enc, '[');
 	while(enif_get_list_cell(env, list, &head, &tail)) {
 		encode_term(env, head, enc);
 		enc_write_ch(enc, ',');	
 		list = tail;
+		++ terms_counter;
 	}
-	enc_set_ch(enc, ']');	
+	if(terms_counter)
+		enc_set_ch(enc, ']');
+	else
+		enc_write_ch(enc, ']');
 }
 
 void
 encode_obj(ErlNifEnv* env, JsonEncoder* enc) {
 	ERL_NIF_TERM fields = enc->buff_tuple[1];
 	ERL_NIF_TERM h_pair, t_pairs;
+	size_t terms_counter = 0;
 	enc_write_ch(enc, '{');	
 	while(enif_get_list_cell(env, fields, &h_pair, &t_pairs)) {
 		encode_field(env, enc, h_pair);
 		enc_write_ch(enc, ',');	
 		fields = t_pairs;
+		++ terms_counter;
 	}
-	enc_set_ch(enc, '}');	
+	if(terms_counter)
+		enc_set_ch(enc, '}');
+	else
+		enc_write_ch(enc, '}');
+	
 }
 
 void
@@ -140,6 +151,27 @@ enc_write_mem(JsonEncoder* enc, unsigned char* mem, size_t size) {
 	}
 }
 
+/*
+ * Write memory block into output buffer
+ */
+void
+enc_write_mem_escape(JsonEncoder* enc, unsigned char* mem, size_t size) {
+	unsigned char * src_head = mem;
+	size_t copy_size = 0;
+	int i;
+	for(i = 0; i < size; ++i) {
+		++ copy_size;
+		if(mem[i] == '\\' || mem[i] == '\"') {
+			enc_write_mem(enc, src_head, copy_size - 1);
+			enc_write_ch(enc, '\\');
+			enc_write_ch(enc, mem[i]);
+			src_head = &(mem[i + 1]);
+			copy_size = 0;
+		}
+	}
+	enc_write_mem(enc, src_head, copy_size);
+}
+
 
 /*
  * Write char into output buffer
@@ -175,13 +207,13 @@ enc_put_int64(JsonEncoder* enc) {
 
 void
 enc_put_double(JsonEncoder* enc) {
-	sprintf((char*)enc->buff_number,"%f", enc->buff_double);
+	sprintf((char*)enc->buff_number,"%.20e", enc->buff_double);
 	enc_write_str(enc, enc->buff_number);	
 }
 
 void
 enc_put_binary(JsonEncoder* enc) {
-	enc_write_mem(enc, enc->buff_binary.data, enc->buff_binary.size);
+	enc_write_mem_escape(enc, enc->buff_binary.data, enc->buff_binary.size);
 }
 
 void

@@ -7,14 +7,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define DEFAULT_OUTPUT_BUFF_SIZE 2 // must be >= 2
+#define DEFAULT_OUTPUT_BUFF_SIZE 512 // must be >= 2
 #define OUTPUT_BUFFER_CAPACITY_KOEFFICIENT 1.6
 #define MAX_ATOM_NAME_LENGTH 64
 #define MAX_NUMBER_LENGTH 64
 
-#define MALLOC malloc
-#define REALLOC realloc
-#define FREE free
+#define MALLOC enif_alloc
+#define REALLOC enif_realloc
+#define FREE enif_free
 
 /*
  * JsonEncoder - simple encoder state container
@@ -55,6 +55,7 @@ void enc_free(JsonEncoder* enc);
 void enc_extend(JsonEncoder* enc);
 void enc_write_str(JsonEncoder* enc, unsigned char* str);
 void enc_write_mem(JsonEncoder* enc, unsigned char* mem, size_t size);
+void enc_write_mem_escape(JsonEncoder* enc, unsigned char* mem, size_t size);
 void enc_write_ch(JsonEncoder* enc, unsigned char ch);
 void enc_set_ch(JsonEncoder* enc, unsigned char ch);
 void enc_put_int(JsonEncoder* enc);
