@@ -1,3 +1,28 @@
+/* rfc4627c_encoder.h - Erlang JSON encoder
+ * Author Vladimir Zaytsev <vladimir@zvm.me>
+ * Copyright (C) 2011 Vladimir Zaystev
+ * License
+ * Permission is hereby granted, free of charge, to any author
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use, copy,
+ * modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit authors to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #ifndef	ENCODER_H
 #define	ENCODER_H
 
@@ -7,22 +32,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define DEFAULT_OUTPUT_BUFF_SIZE 512 // must be >= 2
-#define OUTPUT_BUFFER_CAPACITY_KOEFFICIENT 1.6
-#define MAX_ATOM_NAME_LENGTH 64
-#define MAX_NUMBER_LENGTH 64
+// NOTE(vladimir@zvm.me): INIT_OUTPUT_BUFF_SIZE * OUTPUT_BUFF_CAP_KOEFF must be >= 2
+#define INIT_OUTPUT_BUFF_SIZE			512
+#define OUTPUT_BUFF_CAP_KOEFF			1.6
+#define MAX_ATOM_NAME_LENGTH 			64
+#define MAX_NUMBER_LENGTH 				64
 
-#define MALLOC enif_alloc
-#define REALLOC enif_realloc
-#define FREE enif_free
+#define MALLOC							enif_alloc
+#define REALLOC							enif_realloc
+#define FREE							enif_free
 
-/*
- * JsonEncoder - simple encoder state container
- */
+#define IS_ESCAPE_CHAR(ch)				ch == '\\' || ch == '\"'
+
+// JsonEncoder - simple encoder state container
 typedef struct {
-	/*
-	 * Buffers
-	 */
 	unsigned char*	 		buff_output;
 	ErlNifBinary 			buff_binary;
 	int 					buff_int;
@@ -32,17 +55,11 @@ typedef struct {
 	unsigned char 			buff_number[MAX_NUMBER_LENGTH];
 	const ERL_NIF_TERM*		buff_tuple;
 	
-	/*
-	 * Buffers params
-	 */
 	size_t 					size_buff_output;
 	size_t 					size_data_output;
 	size_t 					size_buff_atom;
 	int						size_buff_tuple;
 	
-	/*
-	 * Special values
-	 */
 	ERL_NIF_TERM 			val_atom_true;
 	ERL_NIF_TERM 			val_atom_false;
 	ERL_NIF_TERM 			val_atom_null;
@@ -50,29 +67,44 @@ typedef struct {
 	
 } JsonEncoder;
 
-JsonEncoder* enc_new(ErlNifEnv* env);
-void enc_free(JsonEncoder* enc);
-void enc_extend(JsonEncoder* enc);
-void enc_write_str(JsonEncoder* enc, unsigned char* str);
-void enc_write_mem(JsonEncoder* enc, unsigned char* mem, size_t size);
-void enc_write_mem_escape(JsonEncoder* enc, unsigned char* mem, size_t size);
-void enc_write_ch(JsonEncoder* enc, unsigned char ch);
-void enc_set_ch(JsonEncoder* enc, unsigned char ch);
-void enc_put_int(JsonEncoder* enc);
-void enc_put_int64(JsonEncoder* enc);
-void enc_put_double(JsonEncoder* enc);
-void enc_put_binary(JsonEncoder* enc);
-void enc_put_binary_string(JsonEncoder* enc);
-void enc_put_true(JsonEncoder* enc);
-void enc_put_false(JsonEncoder* enc);
-void enc_put_null(JsonEncoder* enc);
-void enc_to_binary(ErlNifBinary* bin, JsonEncoder* enc);
-void enc_put_atom(JsonEncoder* enc);
+//////////////////////////////////////////////////////////////////////////////
+/// JsonEncoder struct manipulation funcitons
+//////////////////////////////////////////////////////////////////////////////
+JsonEncoder*	encoder_init(ErlNifEnv* env, JsonEncoder* enc);
+void			encoder_release(JsonEncoder* enc);
+void			encoder_to_binary(ErlNifBinary* bin, JsonEncoder* enc);
 
-void encode_term(ErlNifEnv* env, ERL_NIF_TERM term, JsonEncoder* enc);
-void encode_list(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc);
-void encode_obj(ErlNifEnv* env, JsonEncoder* enc);
-void encode_field(ErlNifEnv* env, JsonEncoder* enc, ERL_NIF_TERM field_tuple);
-void encode_tuple(ErlNifEnv* env, JsonEncoder* enc);
+//////////////////////////////////////////////////////////////////////////////
+/// JsonEncoder 'public' routine functions
+//////////////////////////////////////////////////////////////////////////////
+char encode_term(ErlNifEnv* env, ERL_NIF_TERM term, JsonEncoder* enc);
+char encode_list_as_array(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc);
+char encode_list_as_string(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc);
+char encode_atom(ErlNifEnv* env, ERL_NIF_TERM atom, JsonEncoder* enc);
+char encode_atom_str(ErlNifEnv* env, ERL_NIF_TERM atom, JsonEncoder* enc);
+char encode_tuple(ErlNifEnv* env, ERL_NIF_TERM tuple, JsonEncoder* enc);
+char encode_binary(ErlNifEnv* env, ERL_NIF_TERM binary, JsonEncoder* enc);
+char encode_number(ErlNifEnv* env, ERL_NIF_TERM number, JsonEncoder* enc);
+
+//////////////////////////////////////////////////////////////////////////////
+/// JsonEncoder internal functions
+//////////////////////////////////////////////////////////////////////////////
+void enc_realloc_buff(JsonEncoder* enc);
+
+char enc_buff_write_str(JsonEncoder* enc, unsigned char* str);
+char enc_buff_write(JsonEncoder* enc, unsigned char* mem, size_t size);
+char enc_buff_write_with_escape(JsonEncoder* enc, unsigned char* mem, size_t size);
+char enc_buff_write_ch(JsonEncoder* enc, unsigned char ch);
+char enc_buff_set_last(JsonEncoder* enc, unsigned char ch);
+
+char enc_flush_buff_int(JsonEncoder* enc);
+char enc_flush_buff_int64(JsonEncoder* enc);
+char enc_flush_buff_double(JsonEncoder* enc);
+char enc_flush_buff_binary(JsonEncoder* enc);
+char enc_flush_buff_binary_string(JsonEncoder* enc);
+char enc_flush_buff_true(JsonEncoder* enc);
+char enc_flush_buff_false(JsonEncoder* enc);
+char enc_flush_buff_null(JsonEncoder* enc);
+char enc_flush_buff_atom(JsonEncoder* enc);
 
 #endif	/* ENCODER_H */

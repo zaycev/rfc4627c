@@ -2,7 +2,8 @@
 { 
   [	
     "./src/*",
-    "./test/*"
+    "./test/*",
+    "./perf_test/*"
   ], 
   [
     { i, "./include" },
