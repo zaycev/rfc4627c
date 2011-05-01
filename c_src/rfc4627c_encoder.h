@@ -77,34 +77,13 @@ void			encoder_to_binary(ErlNifBinary* bin, JsonEncoder* enc);
 //////////////////////////////////////////////////////////////////////////////
 /// JsonEncoder 'public' routine functions
 //////////////////////////////////////////////////////////////////////////////
-char encode_term(ErlNifEnv* env, ERL_NIF_TERM term, JsonEncoder* enc);
-char encode_list_as_array(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc);
-char encode_list_as_string(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc);
-char encode_atom(ErlNifEnv* env, ERL_NIF_TERM atom, JsonEncoder* enc);
-char encode_atom_str(ErlNifEnv* env, ERL_NIF_TERM atom, JsonEncoder* enc);
-char encode_tuple(ErlNifEnv* env, ERL_NIF_TERM tuple, JsonEncoder* enc);
-char encode_binary(ErlNifEnv* env, ERL_NIF_TERM binary, JsonEncoder* enc);
-char encode_number(ErlNifEnv* env, ERL_NIF_TERM number, JsonEncoder* enc);
-
-//////////////////////////////////////////////////////////////////////////////
-/// JsonEncoder internal functions
-//////////////////////////////////////////////////////////////////////////////
-void enc_realloc_buff(JsonEncoder* enc);
-
-char enc_buff_write_str(JsonEncoder* enc, unsigned char* str);
-char enc_buff_write(JsonEncoder* enc, unsigned char* mem, size_t size);
-char enc_buff_write_with_escape(JsonEncoder* enc, unsigned char* mem, size_t size);
-char enc_buff_write_ch(JsonEncoder* enc, unsigned char ch);
-char enc_buff_set_last(JsonEncoder* enc, unsigned char ch);
-
-char enc_flush_buff_int(JsonEncoder* enc);
-char enc_flush_buff_int64(JsonEncoder* enc);
-char enc_flush_buff_double(JsonEncoder* enc);
-char enc_flush_buff_binary(JsonEncoder* enc);
-char enc_flush_buff_binary_string(JsonEncoder* enc);
-char enc_flush_buff_true(JsonEncoder* enc);
-char enc_flush_buff_false(JsonEncoder* enc);
-char enc_flush_buff_null(JsonEncoder* enc);
-char enc_flush_buff_atom(JsonEncoder* enc);
+int encode_term(ErlNifEnv* env, ERL_NIF_TERM term, JsonEncoder* enc);
+int encode_list_as_array(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc);
+int encode_list_as_string(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc);
+int encode_atom(ErlNifEnv* env, ERL_NIF_TERM atom, JsonEncoder* enc);
+int encode_atom_str(ErlNifEnv* env, ERL_NIF_TERM atom, JsonEncoder* enc);
+int encode_tuple(ErlNifEnv* env, ERL_NIF_TERM tuple, JsonEncoder* enc);
+int encode_binary(ErlNifEnv* env, ERL_NIF_TERM binary, JsonEncoder* enc);
+int encode_number(ErlNifEnv* env, ERL_NIF_TERM number, JsonEncoder* enc);
 
 #endif	/* ENCODER_H */

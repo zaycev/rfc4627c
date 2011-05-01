@@ -25,6 +25,24 @@
 
 #include "rfc4627c_encoder.h"
 
+static void enc_realloc_buff(JsonEncoder* enc);
+
+static void enc_buff_write_string(JsonEncoder* enc, unsigned char* str);
+static void enc_buff_write(JsonEncoder* enc, unsigned char* mem, size_t size);
+static void enc_buff_write_with_escape(JsonEncoder* enc, unsigned char* mem, size_t size);
+static void enc_buff_write_ch(JsonEncoder* enc, unsigned char ch);
+static void enc_buff_set_last(JsonEncoder* enc, unsigned char ch);
+
+static void enc_flush_buff_int(JsonEncoder* enc);
+static void enc_flush_buff_int64(JsonEncoder* enc);
+static void enc_flush_buff_double(JsonEncoder* enc);
+static void enc_flush_buff_binary(JsonEncoder* enc);
+static void enc_flush_buff_binary_string(JsonEncoder* enc);
+static void enc_flush_buff_true(JsonEncoder* enc);
+static void enc_flush_buff_false(JsonEncoder* enc);
+static void enc_flush_buff_null(JsonEncoder* enc);
+static void enc_flush_buff_atom(JsonEncoder* enc);
+
 // TODO(vladimir@zvm.me): write error checking where it is appropriate
 
 //////////////////////////////////////////////////////////////////////////////
@@ -63,7 +81,7 @@ encoder_to_binary(ErlNifBinary* bin, JsonEncoder* enc) {
 
 // Encode Erlang term to JSON term
 // returns 0 if an error occured
-char
+int
 encode_term(ErlNifEnv* env, ERL_NIF_TERM term, JsonEncoder* enc) {
 	if(enif_is_list(env, term))
 		return encode_list_as_array(env, term, enc);
@@ -78,14 +96,20 @@ encode_term(ErlNifEnv* env, ERL_NIF_TERM term, JsonEncoder* enc) {
 
 // Encode Erlang integer or float to JSON number
 // returns 0 if an error occured
-char
+int
 encode_number(ErlNifEnv* env, ERL_NIF_TERM number, JsonEncoder* enc) {
-	if(enif_get_double(env, number, &enc->buff_double))
-		return enc_flush_buff_double(enc);
-	if(enif_get_int(env, number, &enc->buff_int))
-		return enc_flush_buff_int(enc);
-	if(enif_get_int64(env, number, &enc->buff_int64))
-		return enc_flush_buff_int64(enc);
+	if(enif_get_int(env, number, &enc->buff_int)) {
+		enc_flush_buff_int(enc);
+		return 1;
+	}
+	if(enif_get_double(env, number, &enc->buff_double)) {
+		enc_flush_buff_double(enc);
+		return 1;
+	}
+	if(enif_get_int64(env, number, &enc->buff_int64)) {
+		enc_flush_buff_int64(enc);
+		return 1;
+	}
 	return 0;
 }
 
@@ -95,30 +119,37 @@ encode_number(ErlNifEnv* env, ERL_NIF_TERM number, JsonEncoder* enc) {
 // 		null 		->		null
 // 		otherwise 	->		"atom name"
 // returns 0 if an error occured
-char
+int
 encode_atom(ErlNifEnv* env, ERL_NIF_TERM atom, JsonEncoder* enc) {
-	if(enif_is_identical(atom, enc->val_atom_true))
-		return enc_flush_buff_true(enc);
-	if(enif_is_identical(atom, enc->val_atom_false))
-		return enc_flush_buff_false(enc);
-	if(enif_is_identical(atom, enc->val_atom_null))
-		return enc_flush_buff_null(enc);
+	if(enif_is_identical(atom, enc->val_atom_true)) {
+		enc_flush_buff_true(enc);
+		return 1;
+	}
+	if(enif_is_identical(atom, enc->val_atom_false)) {
+		enc_flush_buff_false(enc);
+		return 1;
+	}
+	if(enif_is_identical(atom, enc->val_atom_null)) {
+		enc_flush_buff_null(enc);
+		return 1;
+	}
 	return encode_atom_str(env, atom, enc);
 }
 
 // Encode Erlang atom to JSON string
-char
+int
 encode_atom_str(ErlNifEnv* env, ERL_NIF_TERM atom, JsonEncoder* enc) {
 	enc->size_buff_atom = enif_get_atom(env,
 		atom, (char*)enc->buff_atom,
 		MAX_NUMBER_LENGTH, ERL_NIF_LATIN1);
 	if(!enc->size_buff_atom) return 0;
-	return enc_flush_buff_atom(enc);
+	enc_flush_buff_atom(enc);
+	return 1;
 }
 
 // Encode Erlang tuple(must be {obj, [Term]}) to JSON object
 // returns 0 if error occured
-char
+int
 encode_tuple(ErlNifEnv* env, ERL_NIF_TERM tuple, JsonEncoder* enc) {
 	enif_get_tuple(env, tuple, &enc->size_buff_tuple, &enc->buff_tuple);
 	if(!enif_is_identical(enc->buff_tuple[0], enc->val_atom_obj)) return 0;
@@ -165,13 +196,13 @@ encode_tuple(ErlNifEnv* env, ERL_NIF_TERM tuple, JsonEncoder* enc) {
 
 // Encode Erlang list of terms to JSON array,
 // returns 0 if error occured
-char
+int
 encode_list_as_array(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc) {
 	ERL_NIF_TERM head, tail;
 	size_t list_length = 0;
 	enc_buff_write_ch(enc, '[');
 	while(enif_get_list_cell(env, list, &head, &tail)) {
-		encode_term(env, head, enc);
+		if(!encode_term(env, head, enc)) return 0;
 		enc_buff_write_ch(enc, ',');	
 		list = tail;
 		++ list_length;
@@ -183,7 +214,7 @@ encode_list_as_array(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc) {
 
 // Encode Erlang list of integers to JSON string,
 // returns 0 if error occured
-char
+int
 encode_list_as_string(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc) {
 	ERL_NIF_TERM head, tail;
 	enc_buff_write_ch(enc, '\"');
@@ -198,9 +229,10 @@ encode_list_as_string(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc) {
 
 // Encode Erlang binary to JSON string,
 // returns 0 if error occured
-char
+int
 encode_binary(ErlNifEnv* env, ERL_NIF_TERM binary, JsonEncoder* enc) {
-	return enc_flush_buff_binary_string(enc);
+	enc_flush_buff_binary_string(enc);
+	return 1;
 }
 
 
@@ -208,26 +240,25 @@ encode_binary(ErlNifEnv* env, ERL_NIF_TERM binary, JsonEncoder* enc) {
 /// JsonEncoder internal functions
 //////////////////////////////////////////////////////////////////////////////
 
-void
+static void
 enc_realloc_buff(JsonEncoder* enc) {
 	enc->size_buff_output *= OUTPUT_BUFF_CAP_KOEFF;
 	enc->buff_output = REALLOC(enc->buff_output, enc->size_buff_output * sizeof(unsigned char));
 }
 
-char
-enc_buff_write_str(JsonEncoder* enc, unsigned char* str) {
+static void
+enc_buff_write_string(JsonEncoder* enc, unsigned char* str) {
 	size_t size = strlen((char*)str);
 	if(enc->size_data_output + size < enc->size_buff_output) {
 		memcpy(&(enc->buff_output[enc->size_data_output]), str, size);
 		enc->size_data_output += size;
 	} else {
 		enc_realloc_buff(enc);
-		enc_buff_write_str(enc, str);
+		enc_buff_write_string(enc, str);
 	}
-	return 1;
 }
 
-char
+static void
 enc_buff_write(JsonEncoder* enc, unsigned char* mem, size_t size) {
 	if(enc->size_data_output + size < enc->size_buff_output) {
 		memcpy(&(enc->buff_output[enc->size_data_output]), mem, size);
@@ -236,10 +267,9 @@ enc_buff_write(JsonEncoder* enc, unsigned char* mem, size_t size) {
 		enc_realloc_buff(enc);
 		enc_buff_write(enc, mem, size);
 	}
-	return 1;
 }
 
-char
+static void
 enc_buff_write_with_escape(JsonEncoder* enc, unsigned char* mem, size_t size) {
 	unsigned char * src_head = mem;
 	size_t esc_block_size = 0;
@@ -255,81 +285,69 @@ enc_buff_write_with_escape(JsonEncoder* enc, unsigned char* mem, size_t size) {
 		}
 	}
 	enc_buff_write(enc, src_head, esc_block_size);
-	return 1;
 }
 
-char
+static void
 enc_buff_write_ch(JsonEncoder* enc, unsigned char ch) {
 	if(enc->size_data_output + 1 >= enc->size_buff_output)
 		enc_realloc_buff(enc);
 	enc->buff_output[enc->size_data_output] = ch;
 	++ enc->size_data_output;
-	return 1;
 }
 
-char
+static void
 enc_buff_set_last(JsonEncoder* enc, unsigned char ch) {
 	enc->buff_output[enc->size_data_output - 1] = ch;
-	return 1;
 }
 
-char
+static void
 enc_flush_buff_int(JsonEncoder* enc) {
 	sprintf((char*)enc->buff_number,"%d", enc->buff_int);
-	enc_buff_write_str(enc, enc->buff_number);
-	return 1;	
+	enc_buff_write_string(enc, enc->buff_number);
 }
 
-char
+static void
 enc_flush_buff_int64(JsonEncoder* enc) {
 	sprintf((char*)enc->buff_number,"%lld", enc->buff_int64);
-	enc_buff_write_str(enc, enc->buff_number);
-	return 1;
+	enc_buff_write_string(enc, enc->buff_number);
 }
 
-char
+static void
 enc_flush_buff_double(JsonEncoder* enc) {
 	sprintf((char*)enc->buff_number,"%.20e", enc->buff_double);
-	enc_buff_write_str(enc, enc->buff_number);
-	return 1;
+	enc_buff_write_string(enc, enc->buff_number);
 }
 
-char
+static void
 enc_flush_buff_binary(JsonEncoder* enc) {
 	enc_buff_write_with_escape(enc, enc->buff_binary.data, enc->buff_binary.size);
-	return 1;
 }
 
-char
+static void
 enc_flush_buff_binary_string(JsonEncoder* enc) {
 	enc_buff_write_ch(enc, '"');
 	enc_flush_buff_binary(enc);
 	enc_buff_write_ch(enc, '"');	
-	return 1;
 }
 
-char
+static void
 enc_flush_buff_true(JsonEncoder* enc) {
-	enc_buff_write_str(enc, (unsigned char *)"true");
-	return 1;
+	enc_buff_write_string(enc, (unsigned char *)"true");
 }
 
-char
+static void
 enc_flush_buff_false(JsonEncoder* enc) {
-	enc_buff_write_str(enc, (unsigned char *)"false");
-	return 1;
+	enc_buff_write_string(enc, (unsigned char *)"false");
 }
 
-char
+static void
 enc_flush_buff_null(JsonEncoder* enc) {
-	enc_buff_write_str(enc, (unsigned char *)"null");
-	return 1;
+	enc_buff_write_string(enc, (unsigned char *)"null");
 }
 
-char
+static void
 enc_flush_buff_atom(JsonEncoder* enc) {
 	enc_buff_write_ch(enc, '"');
 	enc_buff_write(enc, enc->buff_atom, enc->size_buff_atom - 1);
 	enc_buff_write_ch(enc, '"');
-	return 1;
 }

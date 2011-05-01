@@ -26,22 +26,22 @@
 #include "erl_nif.h"
 #include "rfc4627c_encoder.h"
 
-static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM
+encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	
 	JsonEncoder enc;
-	
+	ErlNifBinary bin;
 	encoder_init(env, &enc);
 	
-	encode_term(env, argv[0], &enc);
-	
-	ErlNifBinary bin;
-	
-	encoder_to_binary(&bin, &enc);
-	
-	encoder_release(&enc);
-	
-	return enif_make_binary(env, &bin);
+	if(encode_term(env, argv[0], &enc)) {
+		encoder_to_binary(&bin, &enc);
+		encoder_release(&enc);
+		return enif_make_binary(env, &bin);
+	} else {
+		encoder_release(&enc);
+		return enif_make_atom(env, "error");
+	}
 }
 
 static int
