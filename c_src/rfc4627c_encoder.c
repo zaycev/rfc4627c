@@ -189,8 +189,7 @@ encode_tuple(ErlNifEnv* env, ERL_NIF_TERM tuple, JsonEncoder* enc) {
 		obj_fields = tail;
 		++ cell_counter;
 	}
-	if(cell_counter) enc_buff_set_last(enc, '}');
-	else enc_buff_write_ch(enc, '}');
+	(cell_counter ? enc_buff_set_last : enc_buff_write_ch)(enc, '}');
 	return 1;
 }
 
@@ -207,8 +206,7 @@ encode_list_as_array(ErlNifEnv* env, ERL_NIF_TERM list, JsonEncoder* enc) {
 		list = tail;
 		++ list_length;
 	}
-	if(list_length) enc_buff_set_last(enc, ']');
-	else enc_buff_write_ch(enc, ']');
+	(list_length ? enc_buff_set_last : enc_buff_write_ch)(enc, ']');
 	return 1;
 }
 
