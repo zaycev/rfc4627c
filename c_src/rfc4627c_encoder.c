@@ -1,6 +1,6 @@
 /* rfc4627c_encoder.c - Erlang JSON encoder
  * Author Vladimir Zaytsev <vladimir@zvm.me>
- * Copyright (C) 2011 Vladimir Zaystev
+ * Copyright (C) 2011 Vladimir Zaytsev
  * License
  * Permission is hereby granted, free of charge, to any author
  * obtaining a copy of this software and associated documentation

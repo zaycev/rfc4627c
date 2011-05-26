@@ -1,7 +1,7 @@
 %% JSON - RFC 4627 ecoder/decoder - for Erlang
 %%---------------------------------------------------------------------------
 %% @author Vladimir Zaytsev <vladimir@zvm.me>
-%% @copyright (C) 2011 Vladimir Zaystev
+%% @copyright (C) 2011 Vladimir Zaytsev
 %% @license
 %%
 %% Permission is hereby granted, free of charge, to any author
